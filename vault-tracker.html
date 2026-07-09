@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Weekly training tracker for vault progress toward a 15-foot goal.">
 <title>Runway to 15' — Weekly Training Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -114,7 +115,7 @@
 
     <div class="sheet-panel">
       <div class="sheet-row">
-        <input type="text" id="sheetUrl" placeholder="Paste your Apps Script Web App URL here">
+        <input type="text" id="sheetUrl" placeholder="Paste your Apps Script Web App URL here" autocomplete="off" aria-label="Apps Script Web App URL">
         <button class="sheet-btn" id="sheetSave">Connect sheet</button>
       </div>
       <div class="sheet-status" id="sheetStatus">Not connected — checkbox data saves on this device only until you connect your sheet.</div>
@@ -194,8 +195,10 @@ const PROGRAM = [
 const STORAGE_KEY = "vault-tracker-week";
 const NOTES_KEY = "vault-tracker-notes";
 const URL_KEY = "vault-sheet-webapp-url";
+const LOGGED_KEY = "vault-tracker-logged";
 let state = {};
 let notes = {};
+let loggedTasks = {};
 let sheetUrl = "";
 
 function totalTasks(){ return PROGRAM.reduce((sum,d)=>sum+d.tasks.length,0); }
@@ -278,10 +281,15 @@ function updateGoal(){
   document.getElementById("goalReadout").innerHTML = pct + "%<small>week done</small>";
 }
 
+function buildLogKey(entry){
+  return `${entry.date}:${entry.day}:${entry.exercise}`;
+}
+
 async function persistLocal(){
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+    localStorage.setItem(LOGGED_KEY, JSON.stringify(loggedTasks));
   }catch(err){ console.error("Local save failed:", err); }
 }
 
@@ -299,6 +307,10 @@ async function loadLocal(){
     sheetUrl = u || "";
     if(sheetUrl){ document.getElementById("sheetUrl").value = sheetUrl; setStatus(true, "Connected — checkboxes log to your Sheet's Log tab."); loadPRs(); }
   }catch(err){ sheetUrl = ""; }
+  try{
+    const l = localStorage.getItem(LOGGED_KEY);
+    loggedTasks = l ? JSON.parse(l) : {};
+  }catch(err){ loggedTasks = {}; }
 }
 
 function setStatus(ok, msg){
@@ -310,6 +322,11 @@ function setStatus(ok, msg){
 async function logToSheet(entry, dayKey){
   const tag = document.getElementById("sync-"+dayKey);
   if(!sheetUrl){ if(tag) tag.textContent = ""; return; }
+  if(!entry.completed){ if(tag) tag.textContent = ""; return; }
+
+  const logKey = buildLogKey(entry);
+  if(loggedTasks[logKey]){ if(tag) tag.textContent = "Already synced for today"; return; }
+
   if(tag) tag.textContent = "Syncing...";
   try{
     await fetch(sheetUrl, {
@@ -318,6 +335,8 @@ async function logToSheet(entry, dayKey){
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(entry)
     });
+    loggedTasks[logKey] = true;
+    await persistLocal();
     if(tag) tag.textContent = "Sent to sheet ✓ " + new Date().toLocaleTimeString() + " — check Log tab to confirm";
   }catch(err){
     if(tag) tag.textContent = "Sync failed — saved locally only.";
@@ -355,6 +374,7 @@ document.getElementById("sheetSave").addEventListener("click", async ()=>{
 
 document.getElementById("resetBtn").addEventListener("click", async ()=>{
   state = {};
+  loggedTasks = {};
   await persistLocal();
   render();
   updateGoal();
