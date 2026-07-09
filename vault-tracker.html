@@ -250,14 +250,16 @@ function render(){
       await persistLocal();
       render();
       updateGoal();
-      logToSheet({
-        date: new Date().toISOString().slice(0,10),
-        day: e.target.dataset.dayname,
-        exercise: e.target.dataset.label,
-        setsReps: e.target.dataset.set,
-        completed: e.target.checked,
-        notes: notes[dayKey] || ""
-      }, dayKey);
+      if(e.target.checked){
+        logToSheet({
+          date: new Date().toISOString().slice(0,10),
+          day: e.target.dataset.dayname,
+          exercise: e.target.dataset.label,
+          setsReps: e.target.dataset.set,
+          completed: true,
+          notes: notes[dayKey] || ""
+        }, dayKey);
+      }
     });
   });
 
