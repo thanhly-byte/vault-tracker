@@ -195,8 +195,10 @@ const PROGRAM = [
 const STORAGE_KEY = "vault-tracker-week";
 const NOTES_KEY = "vault-tracker-notes";
 const URL_KEY = "vault-sheet-webapp-url";
+const LOGGED_KEY = "vault-tracker-logged";
 let state = {};
 let notes = {};
+let loggedTasks = {};
 let sheetUrl = "";
 
 function totalTasks(){ return PROGRAM.reduce((sum,d)=>sum+d.tasks.length,0); }
@@ -279,10 +281,15 @@ function updateGoal(){
   document.getElementById("goalReadout").innerHTML = pct + "%<small>week done</small>";
 }
 
+function buildLogKey(entry){
+  return `${entry.date}:${entry.day}:${entry.exercise}`;
+}
+
 async function persistLocal(){
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+    localStorage.setItem(LOGGED_KEY, JSON.stringify(loggedTasks));
   }catch(err){ console.error("Local save failed:", err); }
 }
 
@@ -300,6 +307,10 @@ async function loadLocal(){
     sheetUrl = u || "";
     if(sheetUrl){ document.getElementById("sheetUrl").value = sheetUrl; setStatus(true, "Connected — checkboxes log to your Sheet's Log tab."); loadPRs(); }
   }catch(err){ sheetUrl = ""; }
+  try{
+    const l = localStorage.getItem(LOGGED_KEY);
+    loggedTasks = l ? JSON.parse(l) : {};
+  }catch(err){ loggedTasks = {}; }
 }
 
 function setStatus(ok, msg){
@@ -311,6 +322,11 @@ function setStatus(ok, msg){
 async function logToSheet(entry, dayKey){
   const tag = document.getElementById("sync-"+dayKey);
   if(!sheetUrl){ if(tag) tag.textContent = ""; return; }
+  if(!entry.completed){ if(tag) tag.textContent = ""; return; }
+
+  const logKey = buildLogKey(entry);
+  if(loggedTasks[logKey]){ if(tag) tag.textContent = "Already synced for today"; return; }
+
   if(tag) tag.textContent = "Syncing...";
   try{
     await fetch(sheetUrl, {
@@ -319,6 +335,8 @@ async function logToSheet(entry, dayKey){
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(entry)
     });
+    loggedTasks[logKey] = true;
+    await persistLocal();
     if(tag) tag.textContent = "Sent to sheet ✓ " + new Date().toLocaleTimeString() + " — check Log tab to confirm";
   }catch(err){
     if(tag) tag.textContent = "Sync failed — saved locally only.";
@@ -356,6 +374,7 @@ document.getElementById("sheetSave").addEventListener("click", async ()=>{
 
 document.getElementById("resetBtn").addEventListener("click", async ()=>{
   state = {};
+  loggedTasks = {};
   await persistLocal();
   render();
   updateGoal();
