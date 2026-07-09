@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Runway to 15' — Weekly Training Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#12181B; --chalk:#F1EDE4; --bar:#E8542E; --sky:#2B4C6F; --grass:#4C7A5E;
+    --line: rgba(241,237,228,0.14); --card: #182126;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--ink);color:var(--chalk);font-family:'IBM Plex Sans', sans-serif;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 20px 80px;}
+
+  header{margin-bottom:24px;}
+  .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--bar);margin:0 0 8px;}
+  h1{font-family:'Oswald',sans-serif;font-weight:700;font-size:clamp(34px,6vw,54px);letter-spacing:.01em;text-transform:uppercase;line-height:1.02;margin:0 0 18px;}
+  h1 span{color:var(--bar);}
+  .goal-rail{display:flex;align-items:center;gap:18px;background:var(--card);border:1px solid var(--line);border-radius:4px;padding:18px 20px;}
+  .goal-track{position:relative;flex:1;height:10px;background:rgba(241,237,228,0.08);border-radius:6px;overflow:hidden;}
+  .goal-fill{position:absolute;left:0;top:0;bottom:0;width:0%;background:linear-gradient(90deg, var(--grass), var(--bar));border-radius:6px;transition:width .5s ease;}
+  .goal-marks{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:11px;color:rgba(241,237,228,0.45);margin-top:6px;}
+  .goal-readout{font-family:'Oswald',sans-serif;font-size:26px;font-weight:600;min-width:78px;text-align:right;color:var(--bar);}
+  .goal-readout small{display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:rgba(241,237,228,0.5);font-weight:500;text-transform:uppercase;letter-spacing:.08em;}
+
+  .sheet-panel{margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:4px;padding:14px 18px;}
+  .sheet-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .sheet-row input[type=text]{
+    flex:1;min-width:200px;background:rgba(241,237,228,0.06);border:1px solid var(--line);
+    color:var(--chalk);font-family:'IBM Plex Mono',monospace;font-size:12.5px;
+    padding:9px 10px;border-radius:3px;
+  }
+  .sheet-row input[type=text]::placeholder{color:rgba(241,237,228,0.35);}
+  .sheet-btn{
+    font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    background:var(--bar);border:none;color:var(--ink);padding:9px 16px;border-radius:3px;cursor:pointer;font-weight:600;
+  }
+  .sheet-btn:hover{opacity:.85;}
+  .sheet-status{font-family:'IBM Plex Mono',monospace;font-size:11px;margin-top:8px;color:rgba(241,237,228,0.45);}
+  .sheet-status.ok{color:#8fc5a4;}
+  .sheet-status.err{color:var(--bar);}
+  .pr-strip{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;font-family:'IBM Plex Mono',monospace;font-size:12px;}
+  .pr-chip{background:rgba(232,84,46,0.1);color:var(--bar);padding:5px 10px;border-radius:3px;}
+
+  .day{display:grid;grid-template-columns:56px 1fr;gap:0 22px;border-top:1px solid var(--line);padding:26px 0;}
+  .day:last-child{border-bottom:1px solid var(--line);}
+  .gauge-col{display:flex;flex-direction:column;align-items:center;}
+  .gauge{position:relative;width:14px;height:120px;background:rgba(241,237,228,0.08);border-radius:8px;overflow:hidden;}
+  .gauge-fill{position:absolute;bottom:0;left:0;right:0;height:0%;background:var(--sky);transition:height .4s ease;}
+  .day.complete .gauge-fill{background:var(--bar);}
+  .gauge-bar{position:absolute;left:-6px;right:-6px;height:3px;background:var(--chalk);border-radius:2px;box-shadow:0 0 6px rgba(241,237,228,0.5);transition:bottom .4s ease;}
+  .gauge-label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:rgba(241,237,228,0.4);margin-top:8px;letter-spacing:.05em;}
+
+  .day-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;}
+  .day-name{font-family:'Oswald',sans-serif;font-size:22px;font-weight:600;text-transform:uppercase;letter-spacing:.02em;}
+  .day-tag{font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.08em;padding:3px 8px;border-radius:3px;}
+  .tag-vault{background:rgba(232,84,46,0.16);color:var(--bar);}
+  .tag-strength{background:rgba(43,76,111,0.35);color:#8fb3d6;}
+  .tag-recovery{background:rgba(76,122,94,0.3);color:#8fc5a4;}
+  .day-focus{font-size:13px;color:rgba(241,237,228,0.55);margin-bottom:14px;}
+
+  ul.tasks{list-style:none;margin:0 0 12px;padding:0;}
+  .task{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid rgba(241,237,228,0.06);}
+  .task:last-child{border-bottom:none;}
+  .task input[type=checkbox]{
+    appearance:none;width:19px;height:19px;flex:0 0 19px;
+    border:1.5px solid rgba(241,237,228,0.35);border-radius:3px;cursor:pointer;position:relative;
+    transition:background .15s, border-color .15s;
+  }
+  .task input[type=checkbox]:checked{background:var(--bar);border-color:var(--bar);}
+  .task input[type=checkbox]:checked::after{
+    content:'';position:absolute;left:5px;top:1px;width:5px;height:10px;
+    border:solid var(--ink);border-width:0 2px 2px 0;transform:rotate(40deg);
+  }
+  .task input[type=checkbox]:focus-visible{outline:2px solid var(--chalk);outline-offset:2px;}
+  .task label{font-size:15px;cursor:pointer;flex:1;}
+  .task .set{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:rgba(241,237,228,0.45);white-space:nowrap;}
+  .task.done label{color:rgba(241,237,228,0.35);text-decoration:line-through;}
+
+  .day-notes{
+    width:100%;background:rgba(241,237,228,0.05);border:1px solid var(--line);color:var(--chalk);
+    font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:8px 10px;border-radius:3px;resize:vertical;min-height:38px;
+  }
+  .day-notes::placeholder{color:rgba(241,237,228,0.3);}
+  .sync-tag{font-family:'IBM Plex Mono',monospace;font-size:10px;color:rgba(241,237,228,0.3);margin-top:4px;}
+
+  .rest{border-top:1px solid var(--line);padding:22px 0;display:flex;align-items:center;gap:16px;color:rgba(241,237,228,0.4);font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;}
+  .rest .day-name{color:rgba(241,237,228,0.4);font-family:'Oswald',sans-serif;font-size:22px;text-transform:uppercase;}
+
+  footer{margin-top:30px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+  .reset-btn{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.05em;text-transform:uppercase;background:none;border:1px solid rgba(241,237,228,0.25);color:rgba(241,237,228,0.55);padding:9px 16px;border-radius:3px;cursor:pointer;}
+  .reset-btn:hover{border-color:var(--bar);color:var(--bar);}
+  .note{font-size:12px;color:rgba(241,237,228,0.35);}
+
+  @media (max-width:560px){ .day{grid-template-columns:40px 1fr;gap:0 14px;} .gauge{height:90px;width:10px;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Six-day cycle · vault Tue / Thu</p>
+    <h1>Runway to <span>15'0"</span></h1>
+    <div class="goal-rail">
+      <div style="flex:1">
+        <div class="goal-track"><div class="goal-fill" id="goalFill"></div></div>
+        <div class="goal-marks"><span>13'6"</span><span>14'0"</span><span>14'6"</span><span>15'0"</span></div>
+      </div>
+      <div class="goal-readout" id="goalReadout">0%<small>week done</small></div>
+    </div>
+
+    <div class="sheet-panel">
+      <div class="sheet-row">
+        <input type="text" id="sheetUrl" placeholder="Paste your Apps Script Web App URL here">
+        <button class="sheet-btn" id="sheetSave">Connect sheet</button>
+      </div>
+      <div class="sheet-status" id="sheetStatus">Not connected — checkbox data saves on this device only until you connect your sheet.</div>
+      <div class="pr-strip" id="prStrip"></div>
+    </div>
+  </header>
+
+  <main id="days"></main>
+
+  <div class="rest">
+    <span class="day-name">Sun</span>
+    <span>Off — full rest, no drills</span>
+  </div>
+
+  <footer>
+    <button class="reset-btn" id="resetBtn">Reset this week</button>
+    <span class="note">Local progress saves automatically. Connected checks also log to your Sheet's "Log" tab.</span>
+  </footer>
+
+</div>
+
+<script>
+const PROGRAM = [
+  { key:"mon", name:"Monday", tag:"Strength", tagClass:"tag-strength",
+    focus:"Upper strength + core — bodyweight, legs stay fresh for Tuesday",
+    tasks:[
+      ["rows","Inverted rows (table / door frame)","5×8–10"],
+      ["pushups","Explosive push-ups","5×10–15"],
+      ["dips","Dips (bar or bench)","4×10"],
+      ["pike","Pike push-ups","3×10"],
+      ["legraise","Hanging / lying leg raises","3×10"],
+      ["plank","Plank","3×45s"],
+    ]},
+  { key:"tue", name:"Tuesday", tag:"Vault", tagClass:"tag-vault",
+    focus:"Speed + approach — facility day",
+    tasks:[
+      ["warmup1","Dynamic warmup + A/B-skips","—"],
+      ["sprints1","Sprints, full recovery","6×30m"],
+      ["approach1","Full approach runs → vault attempts","plant timing focus"],
+      ["popups","Pop-ups / short approach vaults","—"],
+    ]},
+  { key:"wed", name:"Wednesday", tag:"Strength", tagClass:"tag-strength",
+    focus:"Lower strength + plyo — heaviest leg day, furthest from both vault sessions",
+    tasks:[
+      ["jumpsquat","Jump squats (max height)","5×8"],
+      ["bulgarian","Bulgarian split squats","4×10/side"],
+      ["depthjump","Depth jumps","4×5"],
+      ["rdl","Single-leg RDLs","3×8/side"],
+      ["broadjump1","Broad jumps","4×5"],
+    ]},
+  { key:"thu", name:"Thursday", tag:"Vault", tagClass:"tag-vault",
+    focus:"Technical + power — pole speed and plant timing",
+    tasks:[
+      ["bounding","Warmup + bounding drills","—"],
+      ["approach2","Full approach + vault attempts","pole speed focus"],
+      ["sprints2","Short sprints, if fresh","4×20m"],
+    ]},
+  { key:"fri", name:"Friday", tag:"Strength", tagClass:"tag-strength",
+    focus:"Explosive power — bodyweight",
+    tasks:[
+      ["boxjump","Box jumps (max height)","5×3"],
+      ["broadsprint","Broad jump → sprint 10m","5 reps"],
+      ["bounds","Single-leg bounds","4×20m"],
+      ["nordic","Nordic curls","3×6"],
+      ["situps","Sit-ups","3×15"],
+    ]},
+  { key:"sat", name:"Saturday", tag:"Recovery", tagClass:"tag-recovery",
+    focus:"Active recovery + mobility",
+    tasks:[
+      ["jog","Light jog / shadow footwork","20 min easy"],
+      ["mobility1","Hip openers, shoulder circles, T-spine rotations","—"],
+      ["flow","Bodyweight mobility flow","—"],
+      ["foam","Foam rolling / stretching","—"],
+    ]},
+];
+
+const STORAGE_KEY = "vault-tracker-week";
+const NOTES_KEY = "vault-tracker-notes";
+const URL_KEY = "vault-sheet-webapp-url";
+let state = {};
+let notes = {};
+let sheetUrl = "";
+
+function totalTasks(){ return PROGRAM.reduce((sum,d)=>sum+d.tasks.length,0); }
+function completedTasks(){ return PROGRAM.reduce((sum,d)=>sum+d.tasks.filter(t=>state[d.key+":"+t[0]]).length,0); }
+
+function render(){
+  const container = document.getElementById("days");
+  container.innerHTML = "";
+  PROGRAM.forEach(day=>{
+    const doneCount = day.tasks.filter(t=>state[day.key+":"+t[0]]).length;
+    const pct = Math.round((doneCount/day.tasks.length)*100);
+    const el = document.createElement("div");
+    el.className = "day" + (pct===100 ? " complete" : "");
+    el.innerHTML = `
+      <div class="gauge-col">
+        <div class="gauge">
+          <div class="gauge-fill" style="height:${pct}%"></div>
+          <div class="gauge-bar" style="bottom:${pct}%"></div>
+        </div>
+        <div class="gauge-label">${pct}%</div>
+      </div>
+      <div>
+        <div class="day-head">
+          <span class="day-name">${day.name}</span>
+          <span class="day-tag ${day.tagClass}">${day.tag}</span>
+        </div>
+        <div class="day-focus">${day.focus}</div>
+        <ul class="tasks">
+          ${day.tasks.map(t=>{
+            const id = day.key+"-"+t[0];
+            const checked = state[day.key+":"+t[0]] ? "checked" : "";
+            const doneClass = state[day.key+":"+t[0]] ? "done" : "";
+            return `<li class="task ${doneClass}">
+                <input type="checkbox" id="${id}" data-day="${day.key}" data-dayname="${day.name}" data-task="${t[0]}" data-label="${t[1]}" data-set="${t[2]}" ${checked}>
+                <label for="${id}">${t[1]}</label>
+                <span class="set">${t[2]}</span>
+              </li>`;
+          }).join("")}
+        </ul>
+        <textarea class="day-notes" data-day="${day.key}" data-dayname="${day.name}" placeholder="Notes for ${day.name} (how it felt, PRs, adjustments)...">${notes[day.key]||""}</textarea>
+        <div class="sync-tag" id="sync-${day.key}"></div>
+      </div>
+    `;
+    container.appendChild(el);
+  });
+
+  container.querySelectorAll("input[type=checkbox]").forEach(cb=>{
+    cb.addEventListener("change", async (e)=>{
+      const dayKey = e.target.dataset.day;
+      const taskKey = e.target.dataset.task;
+      state[dayKey+":"+taskKey] = e.target.checked;
+      await persistLocal();
+      render();
+      updateGoal();
+      logToSheet({
+        date: new Date().toISOString().slice(0,10),
+        day: e.target.dataset.dayname,
+        exercise: e.target.dataset.label,
+        setsReps: e.target.dataset.set,
+        completed: e.target.checked,
+        notes: notes[dayKey] || ""
+      }, dayKey);
+    });
+  });
+
+  container.querySelectorAll(".day-notes").forEach(ta=>{
+    ta.addEventListener("blur", async (e)=>{
+      notes[e.target.dataset.day] = e.target.value;
+      await persistLocal();
+    });
+  });
+}
+
+function updateGoal(){
+  const total = totalTasks(); const done = completedTasks();
+  const pct = total ? Math.round((done/total)*100) : 0;
+  document.getElementById("goalFill").style.width = pct + "%";
+  document.getElementById("goalReadout").innerHTML = pct + "%<small>week done</small>";
+}
+
+async function persistLocal(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+  }catch(err){ console.error("Local save failed:", err); }
+}
+
+async function loadLocal(){
+  try{
+    const s = localStorage.getItem(STORAGE_KEY);
+    state = s ? JSON.parse(s) : {};
+  }catch(err){ state = {}; }
+  try{
+    const n = localStorage.getItem(NOTES_KEY);
+    notes = n ? JSON.parse(n) : {};
+  }catch(err){ notes = {}; }
+  try{
+    const u = localStorage.getItem(URL_KEY);
+    sheetUrl = u || "";
+    if(sheetUrl){ document.getElementById("sheetUrl").value = sheetUrl; setStatus(true, "Connected — checkboxes log to your Sheet's Log tab."); loadPRs(); }
+  }catch(err){ sheetUrl = ""; }
+}
+
+function setStatus(ok, msg){
+  const el = document.getElementById("sheetStatus");
+  el.textContent = msg;
+  el.className = "sheet-status " + (ok===true ? "ok" : ok===false ? "err" : "");
+}
+
+async function logToSheet(entry, dayKey){
+  const tag = document.getElementById("sync-"+dayKey);
+  if(!sheetUrl){ if(tag) tag.textContent = ""; return; }
+  if(tag) tag.textContent = "Syncing...";
+  try{
+    await fetch(sheetUrl, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(entry)
+    });
+    if(tag) tag.textContent = "Sent to sheet ✓ " + new Date().toLocaleTimeString() + " — check Log tab to confirm";
+  }catch(err){
+    if(tag) tag.textContent = "Sync failed — saved locally only.";
+  }
+}
+
+async function loadPRs(){
+  if(!sheetUrl) return;
+  try{
+    const res = await fetch(sheetUrl + "?action=prs");
+    const rows = await res.json();
+    const strip = document.getElementById("prStrip");
+    strip.innerHTML = "";
+    if(Array.isArray(rows) && rows.length > 1){
+      rows.slice(1).forEach(r=>{
+        if(r[0]){
+          const chip = document.createElement("span");
+          chip.className = "pr-chip";
+          chip.textContent = `${r[0]}: ${r[1]}`;
+          strip.appendChild(chip);
+        }
+      });
+    }
+  }catch(err){ /* silent — PR strip is a bonus, not critical */ }
+}
+
+document.getElementById("sheetSave").addEventListener("click", async ()=>{
+  const val = document.getElementById("sheetUrl").value.trim();
+  if(!val){ setStatus(false, "Paste your Web App URL first."); return; }
+  sheetUrl = val;
+  localStorage.setItem(URL_KEY, sheetUrl);
+  setStatus(true, "Connected — check a box to confirm a row lands in your Sheet's Log tab. (A background connectivity ping may fail here even when syncing works fine — the checkbox sync is what matters.)");
+  loadPRs();
+});
+
+document.getElementById("resetBtn").addEventListener("click", async ()=>{
+  state = {};
+  await persistLocal();
+  render();
+  updateGoal();
+});
+
+(async function init(){
+  await loadLocal();
+  render();
+  updateGoal();
+})();
+</script>
+</body>
+</html>
