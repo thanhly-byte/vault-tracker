@@ -546,6 +546,7 @@
     const now = performance.now();
     const isLoudSpike = rms > noiseFloor * spikeMultiplier && rms > 0.035;
     const isClapShaped = highRatio > highRatioThreshold;
+    const confirmedClap = isLoudSpike && isClapShaped && now - lastClapTime > CLAP_COOLDOWN_MS;
 
     dbgRms.textContent = rms.toFixed(3);
     dbgRms.className = 'val ' + (isLoudSpike ? 'pass' : '');
@@ -553,15 +554,15 @@
     dbgShape.textContent = highRatio.toFixed(2) + ' / ' + highRatioThreshold.toFixed(2);
     dbgShape.className = 'val ' + (isClapShaped ? 'pass' : 'fail');
 
-    if (isLoudSpike && isClapShaped && now - lastClapTime > CLAP_COOLDOWN_MS){
+    if (confirmedClap){
       lastClapTime = now;
       flashClapDetected();
       if (running) recordLap();
-    } else if (!isLoudSpike){
-      // slowly adapt to ambient noise level (traffic, wind, breathing) so ongoing
-      // background noise doesn't get mistaken for claps, without this ever falling
-      // below what a real quiet room sounds like
-      noiseFloor = noiseFloor * 0.97 + rms * 0.03;
+    } else {
+      // track ambient noise continuously so sustained sound (wind, traffic,
+      // footsteps) gets absorbed into the floor instead of permanently
+      // looking like a spike no matter how the slider is set
+      noiseFloor = noiseFloor * 0.95 + rms * 0.05;
     }
 
     clapRafId = requestAnimationFrame(clapListenLoop);
