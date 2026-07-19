@@ -350,7 +350,10 @@
   let spikeMultiplier = 2.6;      // how many times louder than ambient floor a spike must be
   let highRatioThreshold = 0.40;  // how much of the spike's energy must be high-frequency (percussive)
   let highBinStart = 0;
+  let pendingClap = null;         // { time, peakRms } — candidate spike awaiting decay confirmation
   const CLAP_COOLDOWN_MS = 700;
+  const DECAY_CHECK_MS = 120;     // how long a real clap takes to die back down
+  const DECAY_RATIO = 0.5;        // must fall to at most half its peak (or near floor) to count as a clap
 
   let gpsEnabled = false;
   let watchId = null;
@@ -555,19 +558,33 @@
     const now = performance.now();
     const isLoudSpike = rms > noiseFloor * spikeMultiplier && rms > 0.035;
     const isClapShaped = highRatio > highRatioThreshold;
-    const confirmedClap = isLoudSpike && isClapShaped && now - lastClapTime > CLAP_COOLDOWN_MS;
 
     dbgRms.textContent = rms.toFixed(3);
-    dbgRms.className = 'val ' + (isLoudSpike ? 'pass' : '');
     dbgNeeded.textContent = (noiseFloor * spikeMultiplier).toFixed(3);
     dbgShape.textContent = highRatio.toFixed(2) + ' / ' + highRatioThreshold.toFixed(2);
     dbgShape.className = 'val ' + (isClapShaped ? 'pass' : 'fail');
 
-    if (confirmedClap){
-      lastClapTime = now;
-      flashClapDetected();
-      if (running) recordLap();
+    if (pendingClap){
+      // we already saw a promising loud + broadband spike — now waiting to see
+      // if it dies back down quickly (a clap) or keeps going (voice, wind, traffic)
+      if (rms > pendingClap.peakRms) pendingClap.peakRms = rms;
+      dbgRms.className = 'val pass';
+
+      if (now - pendingClap.time >= DECAY_CHECK_MS){
+        const decayedEnough = rms < pendingClap.peakRms * DECAY_RATIO || rms < noiseFloor * 1.5;
+        if (decayedEnough && now - lastClapTime > CLAP_COOLDOWN_MS){
+          lastClapTime = now;
+          flashClapDetected();
+          if (running) recordLap();
+        }
+        pendingClap = null;
+      }
+    } else if (isLoudSpike && isClapShaped){
+      // candidate onset — don't trigger yet, wait to see if it decays like a clap
+      pendingClap = { time: now, peakRms: rms };
+      dbgRms.className = 'val pass';
     } else {
+      dbgRms.className = 'val';
       // track ambient noise continuously so sustained sound (wind, traffic,
       // footsteps) gets absorbed into the floor instead of permanently
       // looking like a spike no matter how the slider is set
@@ -587,6 +604,7 @@
   function stopClapListening(){
     if (audioCtx){ audioCtx.close(); audioCtx = null; }
     if (clapRafId) cancelAnimationFrame(clapRafId);
+    pendingClap = null;
     dbgRms.textContent = '—'; dbgRms.className = 'val';
     dbgNeeded.textContent = '—';
     dbgShape.textContent = '—'; dbgShape.className = 'val';
