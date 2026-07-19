@@ -492,6 +492,15 @@
     gpsPaceEl.textContent = '—';
     gpsPredictedEl.textContent = '—';
     renderSplits();
+
+    // if a lap just finished, it stops mic/GPS listening — restart it here
+    // so the toggles that still show "on" actually keep working after reset
+    if (clapEnabled && !audioCtx){
+      startClapListening();
+    }
+    if (gpsEnabled && watchId === null){
+      startGps();
+    }
   });
 
   function startClapListening(){
